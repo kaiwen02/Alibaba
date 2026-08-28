@@ -1,0 +1,377 @@
+// Pathfinder Prisma Schema
+// Three-stage disruption handling: Prediction → Confirmation → Approval
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// AUTH & USER
+// ============================================================================
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  emailVerified DateTime?
+  image         String?
+  bookings      Booking[]
+  notifications Notification[]
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+// BOOKING
+// ============================================================================
+
+model Booking {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id])
+  atlasOrderId   String           @unique
+  status         BookingStatus    @default(CONFIRMED)
+  pnr            String?
+  passengerName  String?
+  passengerEmail String?
+  segments       BookingSegment[]
+  risk           DisruptionRisk?
+  recoveryCase   RecoveryCase?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([atlasOrderId])
+}
+
+model BookingSegment {
+  id          String        @id @default(cuid())
+  bookingId   String
+  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  origin      String        // IATA airport code
+  destination String        // IATA airport code
+  departureAt DateTime
+  arrivalAt   DateTime
+  flightNo    String
+  airline     String
+  cabinClass  String        @default("ECONOMY")
+  status      SegmentStatus @default(CONFIRMED)
+  sortOrder   Int           @default(0)
+
+  @@index([bookingId])
+}
+
+// ============================================================================
+// STAGE 1: PREDICTION
+// ============================================================================
+
+model DisruptionRisk {
+  id              String   @id @default(cuid())
+  bookingId       String   @unique
+  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  riskScore       Float    // 0.0 to 1.0
+  weatherScore    Float    @default(0)
+  disruptionScore Float    @default(0)
+  delayScore      Float    @default(0)
+  historyScore    Float    @default(0)
+  threshold       Float    @default(0.70)
+  triggered       Boolean  @default(false)
+  predictedAt     DateTime @default(now())
+  packages        RecoveryPackage[]
+
+  @@index([bookingId])
+}
+
+// ============================================================================
+// STAGE 2: CONFIRMATION (RECOVERY)
+// ============================================================================
+
+model RecoveryCase {
+  id             String         @id @default(cuid())
+  bookingId      String         @unique
+  booking        Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  webhookEventId String         @unique // Atlas event ID for deduplication
+  changeType     ChangeType
+  severity       Severity
+  status         RecoveryStatus @default(PENDING)
+  packages       RecoveryPackage[]
+  operations     AtlasOperation[]
+  notifications  Notification[]
+  priceVerifications PriceVerification[]
+  payments       Payment[]
+  ticketings     Ticketing[]
+  activatedAt    DateTime       @default(now())
+  resolvedAt     DateTime?
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model RecoveryPackage {
+  id             String       @id @default(cuid())
+  recoveryCaseId String?
+  recoveryCase   RecoveryCase? @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  riskId         String?
+  risk           DisruptionRisk? @relation(fields: [riskId], references: [id], onDelete: SetNull)
+  type           PackageType  // FASTEST, LOWEST_COST, LEAST_DISRUPTION
+  atlasSessionId String?
+  price          Decimal?     @db.Decimal(10, 2)
+  currency       String       @default("USD")
+  journeyTime    Int?         // minutes
+  segments       Json         // Array of flight segment details
+  isStale        Boolean      @default(false)
+  verifiedAt     DateTime?
+  selected       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([recoveryCaseId])
+  @@index([riskId])
+}
+
+// ============================================================================
+// ATLAS OPERATIONS LOG
+// ============================================================================
+
+model AtlasOperation {
+  id              String         @id @default(cuid())
+  recoveryCaseId  String
+  recoveryCase    RecoveryCase   @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  operation       AtlasOpType
+  endpoint        String
+  requestPayload  Json?
+  responsePayload Json?
+  status          OperationStatus @default(PENDING)
+  idempotencyKey  String?        @unique
+  durationMs      Int?
+  errorMessage    String?
+  createdAt       DateTime       @default(now())
+
+  @@index([recoveryCaseId])
+  @@index([idempotencyKey])
+}
+
+model AtlasWebhook {
+  id         String   @id @default(cuid())
+  eventId    String   @unique
+  eventType  String
+  orderId    String?
+  payload    Json
+  signature  String
+  processed  Boolean  @default(false)
+  receivedAt DateTime @default(now())
+
+  @@index([eventId])
+  @@index([orderId])
+}
+
+// ============================================================================
+// STAGE 3: APPROVAL
+// ============================================================================
+
+model PriceVerification {
+  id             String       @id @default(cuid())
+  packageId      String
+  recoveryCaseId String
+  recoveryCase   RecoveryCase @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  originalPrice  Decimal      @db.Decimal(10, 2)
+  verifiedPrice  Decimal      @db.Decimal(10, 2)
+  priceChanged   Boolean      @default(false)
+  sessionId      String?
+  verifiedAt     DateTime     @default(now())
+
+  @@index([recoveryCaseId])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  recoveryCaseId  String
+  recoveryCase    RecoveryCase  @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("USD")
+  status          PaymentStatus @default(PENDING)
+  atlasPayId      String?
+  idempotencyKey  String        @unique
+  attemptedAt     DateTime      @default(now())
+  completedAt     DateTime?
+
+  @@index([recoveryCaseId])
+  @@index([idempotencyKey])
+}
+
+model Ticketing {
+  id              String        @id @default(cuid())
+  recoveryCaseId  String
+  recoveryCase    RecoveryCase  @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  atlasOrderId    String?
+  status          TicketingStatus @default(PENDING)
+  pollingAttempt  Int           @default(0)
+  lastPollAt      DateTime?
+  ticketedAt      DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  createdAt       DateTime      @default(now())
+
+  @@index([recoveryCaseId])
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+model Notification {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id])
+  recoveryCaseId String
+  recoveryCase   RecoveryCase     @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  type           NotificationType
+  title          String
+  message        String
+  deepLink       String
+  read           Boolean          @default(false)
+  sentAt         DateTime         @default(now())
+
+  @@index([userId])
+  @@index([recoveryCaseId])
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum BookingStatus {
+  CONFIRMED
+  DISRUPTED
+  RECOVERED
+  CANCELLED
+}
+
+enum SegmentStatus {
+  CONFIRMED
+  DELAYED
+  CANCELLED
+  COMPLETED
+}
+
+enum ChangeType {
+  MINOR
+  MATERIAL
+  CANCELLED
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RecoveryStatus {
+  PENDING
+  PACKAGES_READY
+  APPROVED
+  EXECUTING
+  TICKETED
+  FAILED
+}
+
+enum PackageType {
+  FASTEST
+  LOWEST_COST
+  LEAST_DISRUPTION
+}
+
+enum AtlasOpType {
+  SEARCH
+  VERIFY
+  ORDER
+  PAY
+  QUERY
+  REFUND
+}
+
+enum OperationStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum TicketingStatus {
+  PENDING
+  POLLING
+  TICKETED
+  FAILED
+}
+
+enum NotificationType {
+  DISRUPTION_ALERT
+  PACKAGE_READY
+  APPROVAL_REQUEST
+  TICKETED
+}
+
+// ============================================================================
+// AI REBOOKING PIPELINE TRACE
+// ============================================================================
+
+model PipelineLog {
+  id        String   @id @default(cuid())
+  step      String   // ATLAS_ROUTES | DISRUPTION_SIM | AI_PROMPT | AI_RESPONSE | AI_PARSE | AI_FALLBACK | PIPELINE
+  level     String   @default("INFO") // INFO | WARN | ERROR
+  message   String
+  meta      Json?
+  bookingId String?
+  createdAt DateTime @default(now())
+
+  @@index([step])
+  @@index([bookingId])
+  @@index([createdAt])
+}

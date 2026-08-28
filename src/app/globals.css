@@ -1,0 +1,178 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 75 100% 62%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 75 100% 62%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 75 100% 62%;
+    --radius: 0.25rem;
+
+    /* Pathfinder brand tokens */
+    --lime: #D4FF3F;
+    --ink: #000000;
+    --ink-soft: #141414;
+    --ink-line: #242424;
+    --paper: #F4F4F0;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply bg-black text-[#F4F4F0] antialiased;
+    font-feature-settings: "ss01", "ss02";
+  }
+  ::selection {
+    background: #D4FF3F;
+    color: #000000;
+  }
+}
+
+/* ========== Typography helpers ========== */
+.font-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+.font-mono2 {
+  font-family: var(--font-mono), monospace;
+}
+
+.text-lime { color: #D4FF3F; }
+.bg-lime { background-color: #D4FF3F; }
+.border-lime { border-color: #D4FF3F; }
+
+/* ========== Preloader ========== */
+@keyframes spin-pf {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
+}
+.pf-monogram {
+  animation: spin-pf 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  transform-style: preserve-3d;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.blink { animation: blink-cursor 1.1s step-end infinite; }
+
+/* ========== Marquee ========== */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee 28s linear infinite;
+  will-change: transform;
+}
+.marquee-reverse {
+  animation-direction: reverse;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+/* ========== Masked line reveals ========== */
+.mask-line {
+  overflow: hidden;
+  display: block;
+}
+.mask-line > span {
+  display: block;
+  transform: translateY(110%);
+}
+
+/* ========== FIDS / departure board ========== */
+.fids-row {
+  @apply border-b border-[#242424] transition-colors;
+}
+.fids-row:hover {
+  background: #111111;
+}
+
+@keyframes status-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.status-dot-disrupted {
+  animation: status-blink 1.4s ease-in-out infinite;
+}
+
+/* ========== Boarding pass ========== */
+.boarding-pass {
+  position: relative;
+  background: #F4F4F0;
+  color: #000000;
+}
+.boarding-pass::before,
+.boarding-pass::after {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background: #000000;
+  border-radius: 50%;
+  top: 68%;
+}
+.boarding-pass::before { left: -12px; }
+.boarding-pass::after { right: -12px; }
+
+.barcode {
+  background-image: repeating-linear-gradient(
+    90deg,
+    #000000 0px, #000000 2px,
+    transparent 2px, transparent 4px,
+    #000000 4px, #000000 7px,
+    transparent 7px, transparent 9px,
+    #000000 9px, #000000 10px,
+    transparent 10px, transparent 13px
+  );
+}
+
+/* ========== Ops console ========== */
+.ops-panel {
+  @apply bg-[#111111] border border-[#242424] rounded-lg;
+}
+
+/* ========== Utility ========== */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.clip-reveal {
+  clip-path: inset(100% 0 0 0);
+}
+
+/* Lenis recommended styles */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
