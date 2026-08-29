@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -64,7 +64,34 @@ const FEATURES = [
 
 export default function GlobeSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const globeWrapRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef(0);
+  const [shouldRenderGlobe, setShouldRenderGlobe] = useState(false);
+
+  useEffect(() => {
+    const target = globeWrapRef.current;
+    if (!target) return;
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+
+    if (reduceMotion || coarsePointer || !('IntersectionObserver' in window)) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldRenderGlobe(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '500px 0px' }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!sectionRef.current) return;
@@ -131,8 +158,14 @@ export default function GlobeSection() {
       </div>
 
       {/* Globe — full width, all routes visible at once */}
-      <div className="globe-wrap relative h-[52vh] md:h-[60vh] mb-16">
-        <FlightGlobe scrollRef={progressRef} />
+      <div ref={globeWrapRef} className="globe-wrap relative h-[52vh] md:h-[60vh] mb-16">
+        {shouldRenderGlobe ? (
+          <FlightGlobe scrollRef={progressRef} />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center rounded-full border border-[#242424] bg-[radial-gradient(circle_at_center,rgba(212,255,63,0.10),transparent_55%)]">
+            <div className="h-[min(42vw,42vh)] w-[min(42vw,42vh)] rounded-full border border-[#F4F4F0]/20 shadow-[0_0_80px_rgba(212,255,63,0.12)]" />
+          </div>
+        )}
         {/* Corner meta labels */}
         <span className="absolute top-4 left-0 font-mono2 text-[10px] tracking-[0.3em] text-[#F4F4F0]/35 uppercase">
           25 stations · 24 corridors

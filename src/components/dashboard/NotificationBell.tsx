@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Bell } from 'lucide-react';
 
 interface Notification {
@@ -16,21 +16,34 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  const fetchNotifications = useCallback(async (signal?: AbortSignal) => {
+    if (document.visibilityState !== 'visible') return;
 
-  const fetchNotifications = async () => {
     try {
-      const res = await fetch('/api/notifications');
+      const res = await fetch('/api/notifications', { signal });
       const data = await res.json();
       setNotifications(data.notifications || []);
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Failed to fetch notifications:', error);
+      }
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchNotifications(controller.signal);
+
+    const interval = setInterval(() => fetchNotifications(controller.signal), 30000);
+    const onVisibilityChange = () => fetchNotifications(controller.signal);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [fetchNotifications]);
 
   const markAllRead = async () => {
     try {

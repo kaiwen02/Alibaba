@@ -1,5 +1,3 @@
-'use client';
-
 interface MarqueeProps {
   items: string[];
   reverse?: boolean;
@@ -8,6 +6,7 @@ interface MarqueeProps {
 
 export default function Marquee({ items, reverse = false, className = '' }: MarqueeProps) {
   const content = items.join(' — ') + ' — ';
+  const parts = content.split('—');
 
   return (
     <div className={`relative overflow-hidden border-y border-[#242424] bg-black py-5 ${className}`}>
@@ -18,10 +17,10 @@ export default function Marquee({ items, reverse = false, className = '' }: Marq
             aria-hidden={copy === 1}
             className="font-display font-bold uppercase tracking-tight text-2xl md:text-4xl text-[#F4F4F0] flex-shrink-0 pr-2"
           >
-            {content.split('—').map((item, i) => (
+            {parts.map((item, i) => (
               <span key={i} className="inline-flex items-center">
                 <span className={i % 2 === 1 ? 'text-lime' : ''}>{item.trim()}</span>
-                {i < content.split('—').length - 1 && (
+                {i < parts.length - 1 && (
                   <span className="mx-6 text-lime">✈</span>
                 )}
               </span>

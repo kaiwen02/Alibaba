@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "demo:reset": "node scripts/reset-demo.js",
     "test": "vitest",
     "test:e2e": "playwright test"
   },
@@ -38,6 +39,7 @@
     "next-auth": "^4.24.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "resend": "^6.24.0",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.185.1",

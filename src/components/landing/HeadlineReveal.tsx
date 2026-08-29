@@ -22,7 +22,14 @@ export default function HeadlineReveal({ lines, accentIndex = -1, className = ''
   useEffect(() => {
     if (!ref.current) return;
 
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     const ctx = gsap.context(() => {
+      if (reduceMotion) {
+        gsap.set('.reveal-line > span', { y: 0 });
+        return;
+      }
+
       gsap.to('.reveal-line > span', {
         y: 0,
         duration: 1.1,

@@ -77,7 +77,7 @@ function useRoutes(radius: number): RouteData[] {
       mid.multiplyScalar(radius + start.distanceTo(end) * 0.22); // lower arcs → globe fits frame
 
       const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-      const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(48));
+      const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(24));
       return { line: new THREE.Line(geometry, material), curve };
     });
   }, [radius]);
@@ -138,8 +138,8 @@ function Globe({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
   const RADIUS = 1.45;
   const routes = useRoutes(RADIUS);
 
-  // Higher segment count → crisper wireframe, no pixelation
-  const wireGeometry = useMemo(() => new THREE.SphereGeometry(RADIUS, 48, 48), []);
+  // Keep geometry light enough for mid-range laptops during the demo.
+  const wireGeometry = useMemo(() => new THREE.SphereGeometry(RADIUS, 32, 24), []);
 
   // Dispose GPU resources on unmount
   useEffect(() => {
@@ -166,7 +166,7 @@ function Globe({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
         <meshBasicMaterial color="#F4F4F0" wireframe transparent opacity={0.26} />
       </mesh>
       <mesh>
-        <sphereGeometry args={[RADIUS * 0.985, 48, 48]} />
+        <sphereGeometry args={[RADIUS * 0.985, 32, 24]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.92} />
       </mesh>
       <AirportNodes radius={RADIUS} />
@@ -182,8 +182,8 @@ export default function FlightGlobe({ scrollRef }: { scrollRef: React.MutableRef
   return (
     <Canvas
       camera={{ position: [0, 0, 4.7], fov: 40 }}
-      dpr={[1, 2]}
-      gl={{ antialias: true, alpha: true }}
+      dpr={[1, 1.25]}
+      gl={{ antialias: false, alpha: true, powerPreference: 'low-power' }}
       style={{ background: 'transparent' }}
     >
       <ambientLight intensity={0.6} />

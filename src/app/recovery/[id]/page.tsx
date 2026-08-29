@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Plane, CheckCircle2, AlertTriangle } from 'lucide-react';
 import PackageCard from '@/components/recovery/PackageCard';
@@ -40,11 +40,11 @@ interface RecoveryData {
 
 export default function RecoveryPage() {
   const params = useParams();
+  const router = useRouter();
   const [data, setData] = useState<RecoveryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
-  const [approving, setApproving] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result] = useState<any>(null);
 
   useEffect(() => {
     fetchRecovery();
@@ -62,28 +62,9 @@ export default function RecoveryPage() {
     }
   };
 
-  const handleApprove = async () => {
+  const handleContinueToPayment = () => {
     if (!selectedPackageId) return;
-
-    setApproving(true);
-    try {
-      const res = await fetch(`/api/recoveries/${params.id}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageId: selectedPackageId }),
-      });
-      const result = await res.json();
-      setResult(result);
-
-      if (result.success) {
-        await fetchRecovery();
-      }
-    } catch (error) {
-      console.error('Approval failed:', error);
-      setResult({ success: false, error: 'Network error' });
-    } finally {
-      setApproving(false);
-    }
+    router.push(`/recovery/${params.id}/payment?packageId=${selectedPackageId}`);
   };
 
   if (loading) {
@@ -233,8 +214,8 @@ export default function RecoveryPage() {
                 CHOOSE YOUR NEW ROUTE.
               </h3>
               <p className="font-mono text-sm text-[#F4F4F0]/50">
-                {data.packages.length} alternatives pre-positioned via Atlas. Price re-verified at
-                approval — nothing books without your yes.
+                {data.packages.length} alternatives pre-positioned via Atlas. Choose an option, then review
+                the fare on a Stripe-like demo checkout before anything books.
               </p>
             </div>
 
@@ -251,18 +232,10 @@ export default function RecoveryPage() {
 
             {selectedPackageId && (
               <button
-                onClick={handleApprove}
-                disabled={approving}
-                className="w-full py-5 bg-lime text-[#000000] font-mono font-bold text-sm tracking-[0.25em] uppercase hover:bg-[#F4F4F0] transition-colors disabled:opacity-50 flex items-center justify-center gap-3"
+                onClick={handleContinueToPayment}
+                className="w-full py-5 bg-lime text-[#000000] font-mono font-bold text-sm tracking-[0.25em] uppercase hover:bg-[#F4F4F0] transition-colors flex items-center justify-center gap-3"
               >
-                {approving ? (
-                  <>
-                    <div className="w-4 h-4 rounded-full border-2 border-[#000000] border-t-transparent animate-spin" />
-                    Executing order → pay → ticket…
-                  </>
-                ) : (
-                  <>Confirm & Rebook →</>
-                )}
+                Continue to Payment →
               </button>
             )}
           </>

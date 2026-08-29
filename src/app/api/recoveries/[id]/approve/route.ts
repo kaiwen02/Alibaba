@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { approveAndExecuteRecovery } from '@/lib/services/recovery';
 import { notifyTicketed } from '@/lib/services/notification';
+import { sendTicketEmail } from '@/lib/services/ticket-email';
 
 /**
  * POST /api/recoveries/[id]/approve
@@ -41,9 +42,29 @@ export async function POST(
 
     const result = await approveAndExecuteRecovery(recoveryId, packageId, userId);
 
-    // If successful, send ticketing notification
+    // If successful, send in-app and email ticket confirmations.
+    // Email delivery is best-effort so it never blocks a successful rebooking.
     if (result.success && result.ticketing?.pnr) {
       await notifyTicketed(userId, recoveryId, result.ticketing.pnr);
+
+      try {
+        const emailResult = await sendTicketEmail({
+          userId,
+          recoveryCaseId: recoveryId,
+          packageId,
+          ticketing: result.ticketing,
+          newPrice: result.newPrice,
+          priceChanged: result.priceChanged,
+        });
+
+        if (emailResult.skipped) {
+          console.info('Ticket email skipped:', emailResult.reason);
+        } else {
+          console.info('Ticket email sent:', emailResult.messageId);
+        }
+      } catch (emailError) {
+        console.error('Ticket email failed:', emailError);
+      }
     }
 
     return NextResponse.json(result);

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Image from 'next/image';
 import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 
@@ -27,7 +26,20 @@ export default function Hero({ started }: HeroProps) {
   useEffect(() => {
     if (!started || !containerRef.current) return;
 
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+
     const ctx = gsap.context(() => {
+      if (reduceMotion) {
+        gsap.set('.hero-line > span, .hero-plane-img, .hero-meta, .hero-cta, .hero-path', {
+          opacity: 1,
+          y: 0,
+          x: 0,
+          scale: 1,
+        });
+        return;
+      }
+
       const tl = gsap.timeline({ defaults: { ease: 'power4.out' } });
 
       tl.to('.hero-line > span', {
@@ -60,26 +72,28 @@ export default function Hero({ started }: HeroProps) {
           '-=0.8'
         );
 
-      // Little plane endlessly tracing the dotted path
-      gsap.to('.hero-mini-plane', {
-        duration: 9,
-        repeat: -1,
-        ease: 'none',
-        motionPath: {
-          path: '#hero-flight-path',
-          align: '#hero-flight-path',
-          alignOrigin: [0.5, 0.5],
-          autoRotate: true,
-        },
-      });
+      if (!coarsePointer) {
+        // Little plane endlessly tracing the dotted path
+        gsap.to('.hero-mini-plane', {
+          duration: 9,
+          repeat: -1,
+          ease: 'none',
+          motionPath: {
+            path: '#hero-flight-path',
+            align: '#hero-flight-path',
+            alignOrigin: [0.5, 0.5],
+            autoRotate: true,
+          },
+        });
 
-      // Dash marching animation for the path itself
-      gsap.to('#hero-flight-path', {
-        strokeDashoffset: -240,
-        duration: 12,
-        repeat: -1,
-        ease: 'none',
-      });
+        // Dash marching animation for the path itself
+        gsap.to('#hero-flight-path', {
+          strokeDashoffset: -240,
+          duration: 12,
+          repeat: -1,
+          ease: 'none',
+        });
+      }
     }, containerRef);
 
     return () => ctx.revert();
@@ -141,18 +155,36 @@ export default function Hero({ started }: HeroProps) {
         </svg>
       </div>
 
-      {/* ===== Airplane image — blended seamlessly on the right ===== */}
-      <div className="hero-plane-img absolute right-0 top-1/2 -translate-y-1/2 w-[92vw] md:w-[55vw] lg:w-[52vw] max-w-none pointer-events-none select-none">
-        <div className="relative aspect-[3/2]">
-          <Image
-            src="/images/hero-plane.png"
-            alt="Commercial jet in flight"
-            fill
-            priority
-            sizes="(max-width: 768px) 92vw, 52vw"
-            className="object-contain mix-blend-screen [mask-image:radial-gradient(ellipse_75%_70%_at_55%_50%,black_45%,transparent_78%)]"
+      {/* ===== Lightweight hero aircraft — avoids a missing/heavy raster image request ===== */}
+      <div className="hero-plane-img absolute right-[-8vw] top-1/2 -translate-y-1/2 w-[92vw] md:w-[55vw] lg:w-[52vw] max-w-none pointer-events-none select-none opacity-80">
+        <svg
+          viewBox="0 0 720 420"
+          aria-hidden="true"
+          className="h-full w-full drop-shadow-[0_0_45px_rgba(212,255,63,0.18)]"
+        >
+          <defs>
+            <linearGradient id="hero-plane-gradient" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stopColor="#F4F4F0" stopOpacity="0" />
+              <stop offset="45%" stopColor="#F4F4F0" stopOpacity="0.36" />
+              <stop offset="100%" stopColor="#D4FF3F" stopOpacity="0.9" />
+            </linearGradient>
+            <radialGradient id="hero-plane-glow" cx="65%" cy="45%" r="55%">
+              <stop offset="0%" stopColor="#D4FF3F" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="#D4FF3F" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <ellipse cx="430" cy="190" rx="290" ry="170" fill="url(#hero-plane-glow)" />
+          <path
+            d="M78 229 642 109c23-5 36 25 16 38L437 293l-32 90-54 12 13-85-146 33-56 58-42 9 27-77-76-39 43-17 85 18 143-83-245 3z"
+            fill="url(#hero-plane-gradient)"
           />
-        </div>
+          <path
+            d="M118 232 633 123"
+            stroke="#F4F4F0"
+            strokeOpacity="0.2"
+            strokeWidth="2"
+          />
+        </svg>
       </div>
 
       {/* ===== Kinetic headline ===== */}
